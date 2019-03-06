@@ -18,6 +18,14 @@ interface UserInfo {
   description?: string;
 }
 
+interface GroupInfo {
+  id: string;
+  name: string;
+  description: string;
+  private: boolean;
+  createdAt: string;
+}
+
 interface CreateDocumentRequest {
   title: string;
   content: string;

@@ -14,6 +14,17 @@ interface UserInfoResponse {
   login: string;
   description: string;
 }
+
+interface GroupInfoResponse {
+  id: number;
+  avatar_url: string;
+  name: string;
+  login: string;
+  description: string;
+  public: 0 | 1;
+  created_at: string;
+}
+
 interface RepositoryResponse {
   id: number;
   name: string;
@@ -76,7 +87,36 @@ export default class YuqueDocumentService implements DocumentService {
       foo = await this.getYuqueRepositories(offset);
       result = result.concat(foo);
     }
+
+    offset = 0;
+    let bar = await this.getYuqueGroups(offset);
+    let groups: GroupInfo[] = [];
+    groups = groups.concat(bar);
+    while (bar.length === 20) {
+      offset = offset + 20;
+      bar = await this.getYuqueGroups(offset);
+      groups = groups.concat(bar);
+    }
+
+    for (let i = 0; i < groups.length; i++) {
+      foo = await this.getGroupRepositories(groups[i].id);
+      result = result.concat(foo);
+    }
+
     this.repositories = result;
+    return result;
+  };
+
+  getGroupRepositories = async (login: string) => {
+    let offset = 0;
+    let foo = await this.getYuqueGroupRepositories(login, offset);
+    let result: Repository[] = [];
+    result = result.concat(foo);
+    while (foo.length === 20) {
+      offset = offset + 20;
+      foo = await this.getYuqueRepositories(offset);
+      result = result.concat(foo);
+    }
     return result;
   };
 
@@ -125,6 +165,62 @@ export default class YuqueDocumentService implements DocumentService {
       }
     };
   }
+
+  private getYuqueGroups = async (offset: number) => {
+    if (!this.login) {
+      await this.getUserInfo();
+    }
+    const query = {
+      offset: offset
+    };
+    const response = await this.request.get<GroupInfoResponse[]>(
+      `users/${this.login}/groups?${qs.stringify(query)}`
+    );
+    const groups = response.data;
+    const result = groups.map(group => {
+      const { id, name, created_at: createdAt, description } = group;
+      return {
+        id: id.toString(),
+        name,
+        description,
+        private: !group.public,
+        createdAt
+      };
+    });
+    return result;
+  };
+
+  private getYuqueGroupRepositories = async (
+    group_login: string,
+    offset: number
+  ) => {
+    const query = {
+      offset: offset
+    };
+    const response = await this.request.get<RepositoryResponse[]>(
+      `groups/${group_login}/repos?${qs.stringify(query)}`
+    );
+    const repositories = response.data;
+    const result = repositories.map(repository => {
+      const {
+        id,
+        name,
+        namespace,
+        created_at: createdAt,
+        description
+      } = repository;
+      return {
+        id: id.toString(),
+        name,
+        namespace,
+        description,
+        owner: namespace.split('/')[0],
+        private: !repository.public,
+        createdAt
+      };
+    });
+    return result;
+  };
 
   private getYuqueRepositories = async (offset: number) => {
     if (!this.login) {
